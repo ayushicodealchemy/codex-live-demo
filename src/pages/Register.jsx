@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { supabase } from '../utils/supabaseClient';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -9,6 +10,8 @@ const Register = () => {
     confirmPassword: ''
   });
   const [errors, setErrors] = useState({});
+  const [notice, setNotice] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const validate = () => {
@@ -30,14 +33,41 @@ const Register = () => {
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validate();
-    if (Object.keys(validationErrors).length === 0) {
-      navigate('/dashboard', { state: { userName: formData.name || 'Aarav Sharma' } });
-    } else {
+    if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      return;
     }
+
+    setErrors({});
+    setNotice('');
+    setIsSubmitting(true);
+
+    const { data, error } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: {
+          full_name: formData.name
+        }
+      }
+    });
+
+    setIsSubmitting(false);
+
+    if (error) {
+      setErrors({ form: error.message });
+      return;
+    }
+
+    if (data.session) {
+      navigate('/dashboard', { state: { userName: formData.name } });
+      return;
+    }
+
+    setNotice('Check your email to confirm your account before signing in.');
   };
 
   const handleChange = (e) => {
@@ -53,6 +83,13 @@ const Register = () => {
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {errors.form && (
+            <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{errors.form}</p>
+          )}
+          {notice && (
+            <p className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</p>
+          )}
+
           <div>
             <label className="block text-left text-sm font-medium text-gray-700 mb-1">Full Name</label>
             <input
@@ -107,9 +144,10 @@ const Register = () => {
 
           <button
             type="submit"
+            disabled={isSubmitting}
             className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-orange-200 mt-4"
           >
-            Create Account
+            {isSubmitting ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 

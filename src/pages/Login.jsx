@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { supabase } from '../utils/supabaseClient';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const validate = () => {
@@ -22,15 +24,31 @@ const Login = () => {
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validate();
-    if (Object.keys(validationErrors).length === 0) {
-      // Mock login success
-      navigate('/dashboard', { state: { userName: 'Aarav Sharma' } });
-    } else {
+    if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      return;
     }
+
+    setErrors({});
+    setIsSubmitting(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    setIsSubmitting(false);
+
+    if (error) {
+      setErrors({ form: error.message });
+      return;
+    }
+
+    const userName = data.user?.user_metadata?.full_name || data.user?.email || 'Reader';
+    navigate('/dashboard', { state: { userName } });
   };
 
   return (
@@ -42,6 +60,10 @@ const Login = () => {
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
+          {errors.form && (
+            <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{errors.form}</p>
+          )}
+
           <div>
             <label className="block text-left text-sm font-medium text-gray-700 mb-1">Email Address</label>
             <input
@@ -68,9 +90,10 @@ const Login = () => {
 
           <button
             type="submit"
+            disabled={isSubmitting}
             className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-orange-200"
           >
-            Sign In
+            {isSubmitting ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
 
