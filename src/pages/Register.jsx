@@ -1,164 +1,77 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
 
+const initialForm = { name: '', email: '', password: '', confirmPassword: '' };
+
 const Register = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-  const [errors, setErrors] = useState({});
-  const [notice, setNotice] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const navigate = useNavigate();
+  const [form, setForm] = useState(initialForm);
+  const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const validate = () => {
-    const newErrors = {};
-    if (!formData.name) newErrors.name = 'Name is required';
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email format is invalid';
-    }
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-    return newErrors;
-  };
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const validationErrors = validate();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match.');
       return;
     }
 
-    setErrors({});
-    setNotice('');
-    setIsSubmitting(true);
-
-    const { data, error } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-      options: {
-        data: {
-          full_name: formData.name
-        }
-      }
+    setLoading(true);
+    const { error: signUpError } = await supabase.auth.signUp({
+      email: form.email.trim(),
+      password: form.password,
+      options: { data: { full_name: form.name.trim() || 'Reader' } }
     });
+    setLoading(false);
 
-    setIsSubmitting(false);
-
-    if (error) {
-      setErrors({ form: error.message });
+    if (signUpError) {
+      setError(signUpError.message);
       return;
     }
 
-    if (data.session) {
-      navigate('/dashboard', { state: { userName: formData.name } });
-      return;
-    }
-
-    setNotice('Check your email to confirm your account before signing in.');
-  };
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setForm(initialForm);
+    setSent(true);
   };
 
   return (
-    <div className="min-h-screen bg-orange-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-orange-100">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-serif font-bold text-slate-800">LitBound</h1>
-          <p className="text-orange-600 mt-2">Start your reading journey</p>
+    <main className="grid min-h-screen place-items-center bg-stone-50 px-4">
+      <section className="w-full max-w-md rounded-lg border border-stone-200 bg-white p-8 shadow-sm">
+        <div className="mb-8 text-center">
+          <h1 className="font-serif text-4xl font-bold text-emerald-950">LitBound</h1>
+          <p className="mt-2 text-sm font-medium text-stone-600">Create your bookstore and reading account.</p>
         </div>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {errors.form && (
-            <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{errors.form}</p>
-          )}
-          {notice && (
-            <p className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</p>
-          )}
 
-          <div>
-            <label className="block text-left text-sm font-medium text-gray-700 mb-1">Full Name</label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className={`w-full px-4 py-2 rounded-lg border ${errors.name ? 'border-red-500' : 'border-gray-200'} focus:ring-2 focus:ring-orange-500 outline-none`}
-              placeholder="Aarav Sharma"
-            />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+        {sent ? (
+          <div className="space-y-5 rounded-lg bg-emerald-50 p-5 text-center">
+            <h2 className="text-xl font-bold text-emerald-950">Verify your email first</h2>
+            <p className="text-sm text-emerald-800">
+              We sent a confirmation link. Open it, verify your email, then come back and sign in.
+            </p>
+            <Link to="/login" className="inline-flex rounded-md bg-emerald-900 px-5 py-3 font-bold text-white">
+              Go to login
+            </Link>
           </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && <p className="rounded-md bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p>}
+            <input className="w-full rounded-md border border-stone-300 px-4 py-3" placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <input className="w-full rounded-md border border-stone-300 px-4 py-3" type="email" placeholder="Email address" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+            <input className="w-full rounded-md border border-stone-300 px-4 py-3" type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} minLength={6} required />
+            <input className="w-full rounded-md border border-stone-300 px-4 py-3" type="password" placeholder="Confirm password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} minLength={6} required />
+            <button type="submit" disabled={loading} className="w-full rounded-md bg-emerald-900 py-3 font-bold text-white hover:bg-emerald-800 disabled:opacity-60">
+              {loading ? 'Creating account...' : 'Create account'}
+            </button>
+          </form>
+        )}
 
-          <div>
-            <label className="block text-left text-sm font-medium text-gray-700 mb-1">Email Address</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className={`w-full px-4 py-2 rounded-lg border ${errors.email ? 'border-red-500' : 'border-gray-200'} focus:ring-2 focus:ring-orange-500 outline-none`}
-              placeholder="aarav@example.com"
-            />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-          </div>
-
-          <div>
-            <label className="block text-left text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              className={`w-full px-4 py-2 rounded-lg border ${errors.password ? 'border-red-500' : 'border-gray-200'} focus:ring-2 focus:ring-orange-500 outline-none`}
-              placeholder="••••••••"
-            />
-            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-          </div>
-
-          <div>
-            <label className="block text-left text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className={`w-full px-4 py-2 rounded-lg border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-200'} focus:ring-2 focus:ring-orange-500 outline-none`}
-              placeholder="••••••••"
-            />
-            {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-orange-200 mt-4"
-          >
-            {isSubmitting ? 'Creating Account...' : 'Create Account'}
-          </button>
-        </form>
-
-        <p className="text-center mt-6! text-sm text-gray-600">
-          Already a member?{' '}
-          <Link to="/login" className="text-orange-600 font-bold hover:underline">
-            Sign In
-          </Link>
+        <p className="mt-6 text-center text-sm text-stone-600">
+          Already registered? <Link to="/login" className="font-bold text-emerald-800 hover:underline">Sign in</Link>
         </p>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };
 
