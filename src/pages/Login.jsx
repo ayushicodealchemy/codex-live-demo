@@ -1,110 +1,73 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const navigate = useNavigate();
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const validate = () => {
-    const newErrors = {};
-    if (!email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Email format is invalid';
-    }
-    if (!password) {
-      newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-    return newErrors;
-  };
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setMessage('');
+    setLoading(true);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const validationErrors = validate();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-
-    setErrors({});
-    setIsSubmitting(true);
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
+    const { error } = await supabase.auth.signInWithPassword({
+      email: form.email.trim(),
+      password: form.password
     });
 
-    setIsSubmitting(false);
-
-    if (error) {
-      setErrors({ form: error.message });
-      return;
-    }
-
-    const userName = data.user?.user_metadata?.full_name || data.user?.email || 'Reader';
-    navigate('/dashboard', { state: { userName } });
+    setLoading(false);
+    if (error) setMessage(error.message);
   };
 
   return (
-    <div className="min-h-screen bg-orange-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-orange-100">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-serif font-bold text-slate-800">LitBound</h1>
-          <p className="text-orange-600 mt-2">Welcome back, bookworm!</p>
+    <main className="grid min-h-screen place-items-center bg-stone-50 px-4">
+      <section className="w-full max-w-md rounded-lg border border-stone-200 bg-white p-8 shadow-sm">
+        <div className="mb-8 text-center">
+          <h1 className="font-serif text-4xl font-bold text-emerald-950">LitBound</h1>
+          <p className="mt-2 text-sm font-medium text-stone-600">Buy, collect, and read your books in one place.</p>
         </div>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {errors.form && (
-            <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{errors.form}</p>
-          )}
 
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {message && <p className="rounded-md bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{message}</p>}
           <div>
-            <label className="block text-left text-sm font-medium text-gray-700 mb-1">Email Address</label>
+            <label className="mb-1 block text-sm font-bold text-stone-700">Email address</label>
             <input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={`w-full px-4 py-3 rounded-lg border ${errors.email ? 'border-red-500' : 'border-gray-200'} focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all`}
-              placeholder="aarav@example.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="w-full rounded-md border border-stone-300 px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-700"
+              placeholder="reader@example.com"
+              required
             />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
           </div>
-
           <div>
-            <label className="block text-left text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label className="mb-1 block text-sm font-bold text-stone-700">Password</label>
             <input
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={`w-full px-4 py-3 rounded-lg border ${errors.password ? 'border-red-500' : 'border-gray-200'} focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all`}
-              placeholder="••••••••"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className="w-full rounded-md border border-stone-300 px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-700"
+              placeholder="Minimum 6 characters"
+              required
+              minLength={6}
             />
-            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
           </div>
-
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-orange-200"
+            disabled={loading}
+            className="w-full rounded-md bg-emerald-900 py-3 font-bold text-white hover:bg-emerald-800 disabled:opacity-60"
           >
-            {isSubmitting ? 'Signing In...' : 'Sign In'}
+            {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
 
-        <p className="text-center mt-6! text-sm text-gray-600">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-orange-600 font-bold hover:underline">
-            Join the club
-          </Link>
+        <p className="mt-6 text-center text-sm text-stone-600">
+          New to LitBound? <Link to="/register" className="font-bold text-emerald-800 hover:underline">Create account</Link>
         </p>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };
 
